@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pemantauan Kualitas Udara</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .pulse-animation { animation: pulse-ring 2s infinite; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-wind text-3xl"></i>
+                    <h1 class="text-2xl font-bold">Sistem Pemantauan Kualitas Udara</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="lastUpdate" class="text-sm opacity-90"></span>
+                    <button onclick="toggleNotifications()" class="relative p-2 hover:bg-white/20 rounded-lg transition">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Location Selector -->
+        <div class="mb-6">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-map-marker-alt text-blue-600"></i>
+                        <select id="locationSelect" onchange="changeLocation()" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="jakarta">Lombok Timur</option>
+                            <option value="surabaya">Lombok Tengah</option>
+                            <option value="bandung">Lomnbok Barat</option>
+                            <option value="medan">Lombok Utara</option>
+                            <option value="semarang">Mataram</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-600">Periode:</span>
+                        <select id="periodSelect" onchange="updateCharts()" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="1h">1 Jam</option>
+                            <option value="24h" selected>24 Jam</option>
+                            <option value="7d">7 Hari</option>
+                            <option value="30d">30 Hari</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AQI Main Card -->
+        <div class="mb-8">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="p-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-2">Indeks Kualitas Udara</h2>
+                        <p class="text-gray-600">Air Quality Index (AQI)</p>
+                    </div>
+                    <div class="flex justify-center mb-6">
+                        <div id="aqiCircle" class="relative w-48 h-48 rounded-full flex items-center justify-center pulse-animation">
+                            <div class="absolute inset-0 rounded-full opacity-20"></div>
+                            <div class="relative text-center">
+                                <div id="aqiValue" class="text-5xl font-bold text-white">--</div>
+                                <div id="aqiStatus" class="text-xl font-semibold text-white mt-2">--</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-8">
+                        <div class="text-center p-2 rounded bg-green-100">
+                            <div class="text-xs text-gray-600">Baik</div>
+                            <div class="font-semibold text-green-700">0-50</div>
+                        </div>
+                        <div class="text-center p-2 rounded bg-yellow-100">
+                            <div class="text-xs text-gray-600">Sedang</div>
+                            <div class="font-semibold text-yellow-700">51-100</div>
+                        </div>
+                        <div class="text-center p-2 rounded bg-orange-100">
+                            <div class="text-xs text-gray-600">Tidak Sehat</div>
+                            <div class="font-semibold text-orange-700">101-150</div>
+                        </div>
+                        <div class="text-center p-2 rounded bg-red-100">
+                            <div class="text-xs text-gray-600">Sangat Tidak Sehat</div>
+                            <div class="font-semibold text-red-700">151-200</div>
+                        </div>
+                        <div class="text-center p-2 rounded bg-purple-100">
+                            <div class="text-xs text-gray-600">Berbahaya</div>
+                            <div class="font-semibold text-purple-700">201-300</div>
+                        </div>
+                        <div class="text-center p-2 rounded bg-gray-800 text-white">
+                            <div class="text-xs">Sangat Berbahaya</div>
+                            <div class="font-semibold">301+</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pollutant Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">PM2.5</h3>
+                        <p class="text-sm text-gray-600">Partikulat Halus</p>
+                    </div>
+                    <i class="fas fa-smog text-3xl text-blue-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="pm25Value" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">μg/m³</span>
+                    </div>
+                    <div id="pm25Status" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">PM10</h3>
+                        <p class="text-sm text-gray-600">Partikulat Kasar</p>
+                    </div>
+                    <i class="fas fa-cloud text-3xl text-green-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="pm10Value" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">μg/m³</span>
+                    </div>
+                    <div id="pm10Status" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">CO</h3>
+                        <p class="text-sm text-gray-600">Karbon Monoksida</p>
+                    </div>
+                    <i class="fas fa-fire text-3xl text-red-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="coValue" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">ppm</span>
+                    </div>
+                    <div id="coStatus" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">NO₂</h3>
+                        <p class="text-sm text-gray-600">Nitrogen Dioksida</p>
+                    </div>
+                    <i class="fas fa-industry text-3xl text-purple-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="no2Value" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">ppb</span>
+                    </div>
+                    <div id="no2Status" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">SO₂</h3>
+                        <p class="text-sm text-gray-600">Sulfur Dioksida</p>
+                    </div>
+                    <i class="fas fa-smog text-3xl text-yellow-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="so2Value" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">ppb</span>
+                    </div>
+                    <div id="so2Status" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">O₃</h3>
+                        <p class="text-sm text-gray-600">Ozon</p>
+                    </div>
+                    <i class="fas fa-sun text-3xl text-orange-500"></i>
+                </div>
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span id="o3Value" class="text-3xl font-bold text-gray-800">--</span>
+                        <span class="text-gray-600 ml-1">ppb</span>
+                    </div>
+                    <div id="o3Status" class="px-3 py-1 rounded-full text-sm font-semibold">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Tren AQI 24 Jam</h3>
+                <canvas id="aqiChart"></canvas>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Komposisi Polutan</h3>
+                <canvas id="pollutantChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Weather Info -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Informasi Cuaca</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <i class="fas fa-temperature-high text-3xl text-orange-500 mb-2"></i>
+                    <p class="text-sm text-gray-600">Suhu</p>
+                    <p id="temperature" class="text-xl font-semibold">--°C</p>
+                </div>
+                <div class="text-center">
+                    <i class="fas fa-tint text-3xl text-blue-500 mb-2"></i>
+                    <p class="text-sm text-gray-600">Kelembaban</p>
+                    <p id="humidity" class="text-xl font-semibold">--%</p>
+                </div>
+                <div class="text-center">
+                    <i class="fas fa-wind text-3xl text-gray-500 mb-2"></i>
+                    <p class="text-sm text-gray-600">Kecepatan Angin</p>
+                    <p id="windSpeed" class="text-xl font-semibold">-- m/s</p>
+                </div>
+                <div class="text-center">
+                    <i class="fas fa-compress-arrows-alt text-3xl text-purple-500 mb-2"></i>
+                    <p class="text-sm text-gray-600">Tekanan</p>
+                    <p id="pressure" class="text-xl font-semibold">-- hPa</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div id="recommendations" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Rekomendasi Kesehatan</h3>
+            <div id="recommendationContent" class="space-y-3"></div>
+        </div>
+    </main>
+
+    <!-- Notification Panel -->
+    <div id="notificationPanel" class="fixed right-0 top-0 h-full w-80 bg-white shadow-2xl transform translate-x-full transition-transform z-50">
+        <div class="p-4 border-b">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold">Notifikasi</h3>
+                <button onclick="toggleNotifications()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div id="notificationList" class="p-4 overflow-y-auto h-full"></div>
+    </div>
+
+    <script>
+        // Global variables
+        let aqiChart, pollutantChart;
+        let currentLocation = 'jakarta';
+        let notifications = [];
+        let notificationEnabled = true;
+
+        // Location data
+        const locationData = {
+            LombokTimur: { name: 'Lombok Timur', lat: -6.2088, lon: 106.8456 },
+            LombokTengah: { name: 'Lombok Tengah', lat: -7.2575, lon: 112.7521 },
+            LombokBarat: { name: 'Bandung', lat: -6.9175, lon: 107.6191 },
+            LombokUtara: { name: 'LombokUtara', lat: 3.5952, lon: 98.6722 },
+            mataram: { name: 'Mataram', lat: -6.9667, lon: 110.4167 }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            updateData();
+            setInterval(updateData, 30000); // Update every 30 seconds
+            updateLastUpdateTime();
+            setInterval(updateLastUpdateTime, 1000);
+        });
+
+        // Generate random data
+        function generateRandomData() {
+            const baseValues = {
+                jakarta: { pm25: 45, pm10: 65, co: 2.5, no2: 35, so2: 15, o3: 45 },
+                surabaya: { pm25: 55, pm10: 75, co: 3.0, no2: 40, so2: 20, o3: 50 },
+                bandung: { pm25: 35, pm10: 55, co: 2.0, no2: 30, so2: 12, o3: 40 },
+                medan: { pm25: 40, pm10: 60, co: 2.2, no2: 32, so2: 14, o3: 42 },
+                semarang: { pm25: 38, pm10: 58, co: 2.1, no2: 31, so2: 13, o3: 41 }
+            };
+
+            const base = baseValues[currentLocation];
+            const variation = 0.2; // 20% variation
+
+            return {
+                pm25: Math.round(base.pm25 * (1 + (Math.random() - 0.5) * variation)),
+                pm10: Math.round(base.pm10 * (1 + (Math.random() - 0.5) * variation)),
+                co: (base.co * (1 + (Math.random() - 0.5) * variation)).toFixed(1),
+                no2: Math.round(base.no2 * (1 + (Math.random() - 0.5) * variation)),
+                so2: Math.round(base.so2 * (1 + (Math.random() - 0.5) * variation)),
+                o3: Math.round(base.o3 * (1 + (Math.random() - 0.5) * variation)),
+                temperature: Math.round(25 + (Math.random() - 0.5) * 10),
+                humidity: Math.round(60 + (Math.random() - 0.5) * 20),
+                windSpeed: (2 + Math.random() * 5).toFixed(1),
+                pressure: Math.round(1010 + (Math.random() - 0.5) * 20)
+            };
+        }
+
+        // Calculate AQI
+        function calculateAQI(data) {
+            // Simplified AQI calculation based on PM2.5
+            const pm25 = parseFloat(data.pm25);
+            
+            if (pm25 <= 12) return pm25 * 50 / 12;
+            if (pm25 <= 35.4) return 51 + (pm25 - 12.1) * 49 / 23.3;
+            if (pm25 <= 55.4) return 101 + (pm25 - 35.5) * 49 / 19.9;
+            if (pm25 <= 150.4) return 151 + (pm25 - 55.5) * 49 / 94.9;
+            if (pm25 <= 250.4) return 201 + (pm25 - 150.5) * 99 / 99.9;
+            return 301 + (pm25 - 250.5) * 199 / 249.5;
+        }
+
+        // Get AQI status
+        function getAQIStatus(aqi) {
+            if (aqi <= 50) return { status: 'Baik', color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-100' };
+            if (aqi <= 100) return { status: 'Sedang', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-100' };
+            if (aqi <= 150) return { status: 'Tidak Sehat', color: 'bg-orange-500', textColor: 'text-orange-700', bgColor: 'bg-orange-100' };
+            if (aqi <= 200) return { status: 'Sangat Tidak Sehat', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-100' };
+            if (aqi <= 300) return { status: 'Berbahaya', color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-100' };
+            return { status: 'Sangat Berbahaya', color: 'bg-gray-800', textColor: 'text-gray-800', bgColor: 'bg-gray-200' };
+        }
+
+        // Get pollutant status
+        function getPollutantStatus(type, value) {
+            const thresholds = {
+                pm25: { good: 12, moderate: 35.4, unhealthy: 55.4, veryUnhealthy: 150.4, hazardous: 250.4 },
+                pm10: { good: 54, moderate: 154, unhealthy: 254, veryUnhealthy: 354, hazardous: 424 },
+                co: { good: 4.4, moderate: 9.4, unhealthy: 12.4, veryUnhealthy: 15.4, hazardous: 30.4 },
+                no2: { good: 53, moderate: 100, unhealthy: 360, veryUnhealthy: 649, hazardous: 1249 },
+                so2: { good: 35, moderate: 75, unhealthy: 185, veryUnhealthy: 304, hazardous: 604 },
+                o3: { good: 54, moderate: 70, unhealthy: 85, veryUnhealthy: 105, hazardous: 200 }
+            };
+
+            const threshold = thresholds[type];
+            const val = parseFloat(value);
+
+            if (val <= threshold.good) return { status: 'Baik', class: 'bg-green-100 text-green-700' };
+            if (val <= threshold.moderate) return { status: 'Sedang', class: 'bg-yellow-100 text-yellow-700' };
+            if (val <= threshold.unhealthy) return { status: 'Tidak Sehat', class: 'bg-orange-100 text-orange-700' };
+            if (val <= threshold.veryUnhealthy) return { status: 'Sangat Tidak Sehat', class: 'bg-red-100 text-red-700' };
+            return { status: 'Berbahaya', class: 'bg-purple-100 text-purple-700' };
+        }
+
+        // Update data
+        function updateData() {
+            const data = generateRandomData();
+            const aqi = Math.round(calculateAQI(data));
+            const aqiStatus = getAQIStatus(aqi);
+
+            // Update AQI
+            document.getElementById('aqiValue').textContent = aqi;
+            document.getElementById('aqiStatus').textContent = aqiStatus.status;
+            const aqiCircle = document.getElementById('aqiCircle');
+            aqiCircle.className = `relative w-48 h-48 rounded-full flex items-center justify-center pulse-animation ${aqiStatus.color}`;
+
+            // Update pollutants
+            document.getElementById('pm25Value').textContent = data.pm25;
+            document.getElementById('pm25Status').textContent = getPollutantStatus('pm25', data.pm25).status;
+            document.getElementById('pm25Status').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('pm25', data.pm25).class}`;
+
+            document.getElementById('pm10Value').textContent = data.pm10;
+            document.getElementById('pm10Status').textContent = getPollutantStatus('pm10', data.pm10).status;
+            document.getElementById('pm10Status').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('pm10', data.pm10).class}`;
+
+            document.getElementById('coValue').textContent = data.co;
+            document.getElementById('coStatus').textContent = getPollutantStatus('co', data.co).status;
+            document.getElementById('coStatus').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('co', data.co).class}`;
+
+            document.getElementById('no2Value').textContent = data.no2;
+            document.getElementById('no2Status').textContent = getPollutantStatus('no2', data.no2).status;
+            document.getElementById('no2Status').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('no2', data.no2).class}`;
+
+            document.getElementById('so2Value').textContent = data.so2;
+            document.getElementById('so2Status').textContent = getPollutantStatus('so2', data.so2).status;
+            document.getElementById('so2Status').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('so2', data.so2).class}`;
+
+            document.getElementById('o3Value').textContent = data.o3;
+            document.getElementById('o3Status').textContent = getPollutantStatus('o3', data.o3).status;
+            document.getElementById('o3Status').className = `px-3 py-1 rounded-full text-sm font-semibold ${getPollutantStatus('o3', data.o3).class}`;
+
+            // Update weather
+            document.getElementById('temperature').textContent = data.temperature + '°C';
+            document.getElementById('humidity').textContent = data.humidity + '%';
+            document.getElementById('windSpeed').textContent = data.windSpeed + ' m/s';
+            document.getElementById('pressure').textContent = data.pressure + ' hPa';
+
+            // Check for alerts
+            checkAlerts(aqi, aqiStatus);
+
+            // Update recommendations
+            updateRecommendations(aqi, aqiStatus);
+
+            // Update charts
+            updateChartData(data);
+        }
+
+        // Check alerts
+        function checkAlerts(aqi, aqiStatus) {
+            if (aqi > 100 && notificationEnabled) {
+                const notification = {
+                    id: Date.now(),
+                    type: 'warning',
+                    title: 'Peringatan Kualitas Udara',
+                    message: `AQI di ${locationData[currentLocation].name} mencapai ${aqi} (${aqiStatus.status})`,
+                    time: new Date().toLocaleTimeString('id-ID')
+                };
+                addNotification(notification);
+            }
+        }
+
+        // Add notification
+        function addNotification(notification) {
+            notifications.unshift(notification);
+            if (notifications.length > 10) notifications.pop();
+            
+            updateNotificationBadge();
+            updateNotificationList();
+        }
+
+        // Update notification badge
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            if (notifications.length > 0) {
+                badge.textContent = notifications.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // Update notification list
+        function updateNotificationList() {
+            const list = document.getElementById('notificationList');
+            list.innerHTML = notifications.map(n => `
+                <div class="mb-3 p-3 rounded-lg ${n.type === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-sm ${n.type === 'warning' ? 'text-yellow-800' : 'text-blue-800'}">${n.title}</h4>
+                            <p class="text-sm text-gray-600 mt-1">${n.message}</p>
+                            <p class="text-xs text-gray-500 mt-2">${n.time}</p>
+                        </div>
+                        <button onclick="removeNotification(${n.id})" class="text-gray-400 hover:text-gray-600 ml-2">
+                            <i class="fas fa-times text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Remove notification
+        function removeNotification(id) {
+            notifications = notifications.filter(n => n.id !== id);
+            updateNotificationBadge();
+            updateNotificationList();
+        }
+
+        // Toggle notifications
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationPanel');
+            panel.classList.toggle('translate-x-full');
+        }
+
+        // Update recommendations
+        function updateRecommendations(aqi, aqiStatus) {
+            const recommendationsDiv = document.getElementById('recommendations');
+            const contentDiv = document.getElementById('recommendationContent');
+            
+            let recommendations = [];
+            
+            if (aqi <= 50) {
+                recommendations = [
+                    { icon: 'fa-check-circle', text: 'Kualitas udara baik, aman untuk aktivitas outdoor', color: 'text-green-600' },
+                    { icon: 'fa-running', text: 'Waktu yang tepat untuk olahraga di luar ruangan', color: 'text-green-600' },
+                    { icon: 'fa-window-maximize', text: 'Bisa membuka jendela untuk sirkulasi udara', color: 'text-green-600' }
+                ];
+            } else if (aqi <= 100) {
+                recommendations = [
+                    { icon: 'fa-exclamation-triangle', text: 'Kualitas udara sedang, sensitif harus berhati-hati', color: 'text-yellow-600' },
+                    { icon: 'fa-child', text: 'Anak-anak dan lansia batasi aktivitas outdoor', color: 'text-yellow-600' },
+                    { icon: 'fa-mask', text: 'Pertimbangkan menggunakan masker saat di luar', color: 'text-yellow-600' }
+                ];
+            } else if (aqi <= 150) {
+                recommendations = [
+                    { icon: 'fa-times-circle', text: 'Kualitas udara tidak sehat untuk kelompok sensitif', color: 'text-orange-600' },
+                    { icon: 'fa-home', text: 'Kurangi aktivitas outdoor, terutama untuk anak-anak', color: 'text-orange-600' },
+                    { icon: 'fa-head-side-mask', text: 'Gunakan masker N95 saat harus keluar', color: 'text-orange-600' },
+                    { icon: 'fa-lungs', text: 'Pasien penyakit pernapasan tetap di dalam ruangan', color: 'text-orange-600' }
+                ];
+            } else {
+                recommendations = [
+                    { icon: 'fa-radiation', text: 'Kualitas udara sangat tidak sehat/berbahaya', color: 'text-red-600' },
+                    { icon: 'fa-door-closed', text: 'Hindari semua aktivitas outdoor', color: 'text-red-600' },
+                    { icon: 'fa-shield-virus', text: 'Gunakan masker N95 dan tutup jendela', color: 'text-red-600' },
+                    { icon: 'fa-procedures', text: 'Segera hubungi dokter jika ada gejala', color: 'text-red-600' }
+                ];
+            }
+            
+            contentDiv.innerHTML = recommendations.map(r => `
+                <div class="flex items-start space-x-3">
+                    <i class="fas ${r.icon} ${r.color} mt-1"></i>
+                    <p class="text-gray-700">${r.text}</p>
+                </div>
+            `).join('');
+            
+            recommendationsDiv.classList.remove('hidden');
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // AQI Chart
+            const aqiCtx = document.getElementById('aqiChart').getContext('2d');
+            aqiChart = new Chart(aqiCtx, {
+                type: 'line',
+                data: {
+                    labels: generateTimeLabels(24),
+                    datasets: [{
+                        label: 'AQI',
+                        data: generateRandomAQIData(24),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 300
+                        }
+                    }
+                }
+            });
+
+            // Pollutant Chart
+            const pollutantCtx = document.getElementById('pollutantChart').getContext('2d');
+            pollutantChart = new Chart(pollutantCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['PM2.5', 'PM10', 'CO', 'NO₂', 'SO₂', 'O₃'],
+                    datasets: [{
+                        data: [30, 25, 15, 12, 8, 10],
+                        backgroundColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(34, 197, 94)',
+                            'rgb(239, 68, 68)',
+                            'rgb(168, 85, 247)',
+                            'rgb(251, 191, 36)',
+                            'rgb(249, 115, 22)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Generate time labels
+        function generateTimeLabels(hours) {
+            const labels = [];
+            const now = new Date();
+            for (let i = hours - 1; i >= 0; i--) {
+                const time = new Date(now - i * 60 * 60 * 1000);
+                labels.push(time.getHours() + ':00');
+            }
+            return labels;
+        }
+
+        // Generate random AQI data
+        function generateRandomAQIData(points) {
+            const data = [];
+            for (let i = 0; i < points; i++) {
+                data.push(Math.round(50 + Math.random() * 100));
+            }
+            return data;
+        }
+
+        // Update chart data
+        function updateChartData(data) {
+            // Update AQI chart
+            const aqiData = aqiChart.data.datasets[0].data;
+            aqiData.shift();
+            aqiData.push(calculateAQI(data));
+            aqiChart.update('none');
+
+            // Update pollutant chart
+            const total = parseFloat(data.pm25) + parseFloat(data.pm10) + parseFloat(data.co) * 10 + 
+                         parseFloat(data.no2) + parseFloat(data.so2) + parseFloat(data.o3);
+            pollutantChart.data.datasets[0].data = [
+                Math.round(parseFloat(data.pm25) / total * 100),
+                Math.round(parseFloat(data.pm10) / total * 100),
+                Math.round(parseFloat(data.co) * 10 / total * 100),
+                Math.round(parseFloat(data.no2) / total * 100),
+                Math.round(parseFloat(data.so2) / total * 100),
+                Math.round(parseFloat(data.o3) / total * 100)
+            ];
+            pollutantChart.update('none');
+        }
+
+        // Update charts based on period
+        function updateCharts() {
+            const period = document.getElementById('periodSelect').value;
+            let hours;
+            
+            switch(period) {
+                case '1h': hours = 1; break;
+                case '24h': hours = 24; break;
+                case '7d': hours = 168; break;
+                case '30d': hours = 720; break;
+            }
+            
+            aqiChart.data.labels = generateTimeLabels(Math.min(hours, 24));
+            aqiChart.data.datasets[0].data = generateRandomAQIData(Math.min(hours, 24));
+            aqiChart.update();
+        }
+
+        // Change location
+        function changeLocation() {
+            currentLocation = document.getElementById('locationSelect').value;
+            updateData();
+        }
+
+        // Update last update time
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                'Terakhir update: ' + now.toLocaleTimeString('id-ID');
+        }
+    </script>
+</body>
+</html>
